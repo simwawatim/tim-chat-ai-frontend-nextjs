@@ -43,8 +43,8 @@ export default function HeroSection() {
             >
                 Try Tim Chat AI
             </a>
-            <a href="#" className="text-sm/6 font-semibold text-gray-900">
-                Learn More <span aria-hidden="true">→</span>
+            <a href="/login" className="text-sm/6 font-semibold text-gray-900">
+                Login <span aria-hidden="true">→</span>
             </a>
             </div>
 
