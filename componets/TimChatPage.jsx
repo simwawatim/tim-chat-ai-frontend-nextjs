@@ -9,7 +9,6 @@ export default function TimChatPromptWithSidebar() {
   const [activeChat, setActiveChat] = useState(null);
   const [response, setResponse] = useState('');
   const [loading, setLoading] = useState(false);
-  const [copiedCode, setCopiedCode] = useState(null); // track copied block
 
   useEffect(() => {
     if (activeChat !== null) {
@@ -50,114 +49,87 @@ export default function TimChatPromptWithSidebar() {
     setMessage('');
   };
 
-  const copyToClipboard = (code, index) => {
-    navigator.clipboard.writeText(code).then(() => {
-      setCopiedCode(index);
-      setTimeout(() => setCopiedCode(null), 2000);
-    });
-  };
-
   return (
-    <>
-      {/* Static Navbar */}
-      <nav className="navbar navbar-dark bg-dark fixed-top shadow">
-        <div className="container-fluid">
-          <span className="navbar-brand mb-0 h1">Tim Chat</span>
-        </div>
-      </nav>
+    <div className="container-fluid mt-3">
+      <div className="row">
 
-      <div className="container-fluid mt-5 pt-3">
-        <div className="row">
-
-          {/* Sidebar */}
-          <div className="col-md-3 mb-3">
-            <div className="list-group shadow rounded">
-              {history.length === 0 ? (
-                <div className="list-group-item text-center text-muted">No chats yet</div>
-              ) : (
-                history.map((chat, index) => (
-                  <button
-                    key={index}
-                    className={`list-group-item list-group-item-action ${
-                      index === activeChat ? 'active' : ''
-                    }`}
-                    onClick={() => setActiveChat(index)}
-                  >
-                    {chat.userMessage.slice(0, 30)}...
-                  </button>
-                ))
-              )}
-            </div>
+        {/* Sidebar */}
+        <div className="col-md-3 mb-3">
+          <div className="list-group shadow rounded">
+            {history.length === 0 ? (
+              <div className="list-group-item text-center text-muted">No chats yet</div>
+            ) : (
+              history.map((chat, index) => (
+                <button
+                  key={index}
+                  className={`list-group-item list-group-item-action ${
+                    index === activeChat ? 'active' : ''
+                  }`}
+                  onClick={() => setActiveChat(index)}
+                >
+                  {chat.userMessage.slice(0, 30)}...
+                </button>
+              ))
+            )}
           </div>
+        </div>
 
-          {/* Main Chat Area */}
-          <div className="col-md-9">
-            <div className="card shadow-sm mb-3">
-              <div className="card-body">
+        {/* Main Chat Area */}
+        <div className="col-md-9">
+          <div className="card shadow-sm mb-3">
+            <div className="card-body">
 
-                {/* Input */}
-                <div className="input-group mb-3">
-                  <textarea
-                    className="form-control"
-                    rows="2"
-                    placeholder="Ask something..."
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                  />
-                  <button
-                    className="btn btn-primary"
-                    onClick={handleSubmit}
-                    disabled={loading}
-                  >
-                    Send
-                  </button>
-                </div>
-
-                {/* Loading */}
-                {loading && (
-                  <div className="alert alert-info py-2">
-                    ⏳ Waiting for response...
-                  </div>
-                )}
-
-                {/* Response */}
-                {!loading && response && (
-                  <div className="border rounded p-3 bg-light" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
-                    <ReactMarkdown
-                      children={response}
-                      components={{
-                        code({ node, inline, className, children, ...props }) {
-                          const match = /language-(\w+)/.exec(className || '');
-                          const codeString = String(children).replace(/\n$/, '');
-                          const blockIndex = Math.random(); // unique ID per render
-
-                          return !inline && match ? (
-                            <div className="position-relative">
-                              <button
-                                className="btn btn-sm btn-secondary position-absolute end-0 top-0 m-1"
-                                onClick={() => copyToClipboard(codeString, blockIndex)}
-                              >
-                                {copiedCode === blockIndex ? 'Copied!' : 'Copy'}
-                              </button>
-                              <SyntaxHighlighter style={oneDark} language={match[1]} PreTag="div" {...props}>
-                                {codeString}
-                              </SyntaxHighlighter>
-                            </div>
-                          ) : (
-                            <code className="bg-dark text-white p-1 rounded small" {...props}>
-                              {children}
-                            </code>
-                          );
-                        },
-                      }}
-                    />
-                  </div>
-                )}
+              {/* Input */}
+              <div className="input-group mb-3">
+                <textarea
+                  className="form-control"
+                  rows="2"
+                  placeholder="Ask something..."
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                />
+                <button
+                  className="btn btn-primary"
+                  onClick={handleSubmit}
+                  disabled={loading}
+                >
+                  Send
+                </button>
               </div>
+
+              {/* Loading */}
+              {loading && (
+                <div className="alert alert-info py-2">
+                  ⏳ Waiting for response...
+                </div>
+              )}
+
+              {/* Response */}
+              {!loading && response && (
+                <div className="border rounded p-3 bg-light" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+                  <ReactMarkdown
+                    children={response}
+                    components={{
+                      code({ node, inline, className, children, ...props }) {
+                        const match = /language-(\w+)/.exec(className || '');
+                        return !inline && match ? (
+                          <SyntaxHighlighter style={oneDark} language={match[1]} PreTag="div" {...props}>
+                            {String(children).replace(/\n$/, '')}
+                          </SyntaxHighlighter>
+                        ) : (
+                          <code className="bg-dark text-white p-1 rounded small" {...props}>
+                            {children}
+                          </code>
+                        );
+                      },
+                    }}
+                  />
+                </div>
+              )}
             </div>
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 }
