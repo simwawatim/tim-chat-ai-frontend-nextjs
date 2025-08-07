@@ -9,6 +9,7 @@ export default function TimChatPromptWithSidebar() {
   const [activeChat, setActiveChat] = useState(null);
   const [response, setResponse] = useState('');
   const [loading, setLoading] = useState(false);
+  const [copiedCode, setCopiedCode] = useState(null); // track copied block
 
   useEffect(() => {
     if (activeChat !== null) {
@@ -49,18 +50,25 @@ export default function TimChatPromptWithSidebar() {
     setMessage('');
   };
 
+  const copyToClipboard = (code, index) => {
+    navigator.clipboard.writeText(code).then(() => {
+      setCopiedCode(index);
+      setTimeout(() => setCopiedCode(null), 2000);
+    });
+  };
+
   return (
     <>
       {/* Static Navbar */}
-      <nav className="navbar navbar-expand-lg navbar-light bg-light fixed-top">
-        <a className="navbar-brand" href="#">
-          TimChat
-        </a>
+      <nav className="navbar navbar-dark bg-dark fixed-top shadow">
+        <div className="container-fluid">
+          <span className="navbar-brand mb-0 h1">Tim Chat</span>
+        </div>
       </nav>
 
-      {/* Content Container with Top Padding to avoid overlap with fixed navbar*/}
       <div className="container-fluid mt-5 pt-3">
         <div className="row">
+
           {/* Sidebar */}
           <div className="col-md-3 mb-3">
             <div className="list-group shadow rounded">
@@ -86,6 +94,7 @@ export default function TimChatPromptWithSidebar() {
           <div className="col-md-9">
             <div className="card shadow-sm mb-3">
               <div className="card-body">
+
                 {/* Input */}
                 <div className="input-group mb-3">
                   <textarea
@@ -113,29 +122,29 @@ export default function TimChatPromptWithSidebar() {
 
                 {/* Response */}
                 {!loading && response && (
-                  <div
-                    className="border rounded p-3 bg-light"
-                    style={{ maxHeight: '60vh', overflowY: 'auto' }}
-                  >
+                  <div className="border rounded p-3 bg-light" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
                     <ReactMarkdown
                       children={response}
                       components={{
                         code({ node, inline, className, children, ...props }) {
                           const match = /language-(\w+)/.exec(className || '');
+                          const codeString = String(children).replace(/\n$/, '');
+                          const blockIndex = Math.random(); // unique ID per render
+
                           return !inline && match ? (
-                            <SyntaxHighlighter
-                              style={oneDark}
-                              language={match[1]}
-                              PreTag="div"
-                              {...props}
-                            >
-                              {String(children).replace(/\n$/, '')}
-                            </SyntaxHighlighter>
+                            <div className="position-relative">
+                              <button
+                                className="btn btn-sm btn-secondary position-absolute end-0 top-0 m-1"
+                                onClick={() => copyToClipboard(codeString, blockIndex)}
+                              >
+                                {copiedCode === blockIndex ? 'Copied!' : 'Copy'}
+                              </button>
+                              <SyntaxHighlighter style={oneDark} language={match[1]} PreTag="div" {...props}>
+                                {codeString}
+                              </SyntaxHighlighter>
+                            </div>
                           ) : (
-                            <code
-                              className="bg-dark text-white p-1 rounded small"
-                              {...props}
-                            >
+                            <code className="bg-dark text-white p-1 rounded small" {...props}>
                               {children}
                             </code>
                           );
