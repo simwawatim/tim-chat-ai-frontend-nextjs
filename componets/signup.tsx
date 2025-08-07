@@ -1,6 +1,80 @@
-import React from 'react';
+import React, { FormEvent, useState } from 'react';
+
+const BASE_URL = 'http://localhost:8000/chatai';
 
 export default function Signup() {
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [messageType, setMessageType] = useState<'error' | 'success' | null>(null);
+
+  const handleSignup = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    const target = e.target as typeof e.target & {
+      fullName: { value: string };
+      email: { value: string };
+      password: { value: string };
+    };
+
+    const fullNameParts = target.fullName.value.trim().split(' ');
+
+    const data = {
+      username: target.email.value.split('@')[0],
+      email: target.email.value,
+      password: target.password.value,
+      first_name: fullNameParts[0] || '',
+      last_name: fullNameParts.slice(1).join(' ') || '',
+    };
+
+    setLoading(true);
+    setMessage(null);
+    setMessageType(null);
+
+    try {
+      const res = await fetch(`${BASE_URL}/register/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+
+      let result;
+      try {
+        result = await res.json();
+      } catch {
+        result = null;
+      }
+
+      if (res.ok) {
+        setMessage('Registration successful! Redirecting to login...');
+        setMessageType('success');
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 1500);
+      } else {
+        const errorMessage =
+          (result && result.detail) ||
+          (result && typeof result === 'object' ? JSON.stringify(result) : null) ||
+          'Registration failed. Please try again.';
+        setMessage(errorMessage);
+        setMessageType('error');
+      }
+    } catch (error: any) {
+      console.error('Network or unexpected error:', error);
+
+      if (error instanceof TypeError) {
+        // Likely network failure or CORS
+        setMessage(
+          'Network error: Unable to reach the server. Please check your internet connection or server status.'
+        );
+      } else {
+        setMessage('An unexpected error occurred. Please try again later.');
+      }
+      setMessageType('error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center px-4">
       <div className="max-w-md w-full bg-white p-8 rounded-xl shadow-lg">
@@ -8,51 +82,59 @@ export default function Signup() {
           Create a Tim Chat Account
         </h2>
 
-        {/* Social sign-up buttons */}
-        <div className="space-y-3">
-          <button className="w-full flex items-center justify-center bg-red-500 text-white py-2 px-4 rounded-lg hover:bg-red-600 transition">
-            Sign up with Google
-          </button>
-          <button className="w-full flex items-center justify-center bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition">
-            Sign up with Facebook
-          </button>
-          <button className="w-full flex items-center justify-center bg-sky-500 text-white py-2 px-4 rounded-lg hover:bg-sky-600 transition">
-            Sign up with Twitter
-          </button>
-        </div>
-
-        {/* Divider */}
-        <div className="my-6 text-center text-sm text-gray-400">or sign up with email</div>
-
-        {/* Email sign up form */}
-        <form className="space-y-4">
+        <form className="space-y-4" onSubmit={handleSignup}>
           <input
+            name="fullName"
             type="text"
             placeholder="Full Name"
             className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring focus:border-indigo-500"
+            required
+            disabled={loading}
           />
           <input
+            name="email"
             type="email"
             placeholder="Email Address"
             className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring focus:border-indigo-500"
+            required
+            disabled={loading}
           />
           <input
+            name="password"
             type="password"
             placeholder="Password"
             className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring focus:border-indigo-500"
+            required
+            disabled={loading}
           />
           <button
             type="submit"
-            className="w-full bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 transition"
+            disabled={loading}
+            className={`w-full py-2 px-4 rounded-lg transition ${
+              loading
+                ? 'bg-indigo-400 cursor-not-allowed'
+                : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+            }`}
           >
-            Sign Up
+            {loading ? 'Signing up...' : 'Sign Up'}
           </button>
         </form>
 
-        {/* Continue as guest */}
-        <div className="text-center text-sm text-gray-500 mt-6 mb-2">
-          or continue as guest
-        </div>
+        {/* Message Box */}
+        {message && (
+          <div
+            className={`mt-4 p-3 rounded text-center ${
+              messageType === 'error'
+                ? 'bg-red-100 text-red-700'
+                : 'bg-green-100 text-green-700'
+            }`}
+            role="alert"
+          >
+            {message}
+          </div>
+        )}
+
+        <div className="text-center text-sm text-gray-500 mt-6 mb-2">or continue as guest</div>
         <div className="text-center">
           <a
             href="/chat"
@@ -62,7 +144,6 @@ export default function Signup() {
           </a>
         </div>
 
-        {/* Already have an account */}
         <div className="mt-6 text-center text-sm">
           Already have an account?{' '}
           <a href="/login" className="text-indigo-600 hover:underline">
