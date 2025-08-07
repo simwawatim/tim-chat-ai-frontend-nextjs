@@ -1,6 +1,6 @@
 import React, { FormEvent, useState } from 'react';
 
-const BASE_URL = 'http://localhost:8000/chatai';
+const BASE_URL = 'https://timprojects.pythonanywhere.com/chatai';
 
 export default function Signup() {
   const [loading, setLoading] = useState(false);
