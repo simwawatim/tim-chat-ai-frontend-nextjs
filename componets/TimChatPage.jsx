@@ -11,13 +11,24 @@ export default function TimChatPromptWithSidebar() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-
   const messagesEndRef = useRef(null);
+  const dropdownRef = useRef();
 
+  // Scroll to bottom on new message
   useEffect(() => {
-    // Scroll to bottom on activeChat or messages change
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [activeChat]);
+  }, [activeChat?.messages, loading]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -54,9 +65,7 @@ export default function TimChatPromptWithSidebar() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prompt:
-            'Please respond in markdown format, use code blocks for code examples.\n\n' +
-            message,
+          prompt: `Please respond in markdown format, use code blocks for code examples.\n\n${message}`,
         }),
       });
 
@@ -66,16 +75,11 @@ export default function TimChatPromptWithSidebar() {
       }
 
       const data = await res.json();
+      const botMsg = { role: 'bot', text: data.response || 'No response from AI.' };
 
-      const botMsg = {
-        role: 'bot',
-        text: data.response || 'No response from AI.',
-      };
-
-      const newHistory = [...(activeChat?.messages || []), userMsg, botMsg];
-
+      const newMessages = [...(activeChat?.messages || []), userMsg, botMsg];
       const updatedChat = activeChat
-        ? { ...activeChat, messages: newHistory }
+        ? { ...activeChat, messages: newMessages }
         : {
             id: Date.now(),
             title: message.length > 20 ? message.slice(0, 20) + '...' : message,
@@ -92,20 +96,20 @@ export default function TimChatPromptWithSidebar() {
         );
       }
     } catch (err) {
-      console.error('Error calling chat API:', err);
-      setError('Failed to get response from AI. Please try again.');
+      console.error(err);
+      setError('Failed to get response from AI.');
     } finally {
       setLoading(false);
       setMessage('');
     }
   };
 
-  const handleHistoryClick = (chat) => {
-    setActiveChat(chat);
-    setError(null);
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit(e);
+    }
   };
-
-  const toggleDropdown = () => setDropdownOpen((open) => !open);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -118,20 +122,20 @@ export default function TimChatPromptWithSidebar() {
       <nav className="bg-white shadow p-4 flex justify-between items-center relative">
         <h1 className="text-lg font-bold text-indigo-600">Tim Chat</h1>
 
-        <div className="relative flex items-center gap-3">
+        <div className="relative flex items-center gap-3" ref={dropdownRef}>
           {user ? (
             <>
               <button
-                onClick={toggleDropdown}
-                className="text-sm text-gray-700 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded"
+                onClick={() => setDropdownOpen(!dropdownOpen)}
+                className="text-sm text-gray-700 font-medium focus:outline-none"
               >
                 {user.first_name} {user.last_name}
               </button>
               {dropdownOpen && (
-                <div className="absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-lg shadow-md z-20">
+                <div className="absolute right-0 mt-2 w-40 bg-white border rounded shadow z-20">
                   <button
                     onClick={handleLogout}
-                    className="block w-full px-4 py-2 text-sm text-left text-red-600 hover:bg-gray-100 focus:outline-none"
+                    className="block w-full px-4 py-2 text-sm text-left text-red-600 hover:bg-gray-100"
                   >
                     Logout
                   </button>
@@ -140,22 +144,12 @@ export default function TimChatPromptWithSidebar() {
             </>
           ) : (
             <>
-              <button
-                onClick={toggleDropdown}
-                className="h-10 w-10 flex items-center justify-center bg-gray-400 text-white text-sm rounded-full font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              <a
+                href="/login"
+                className="h-10 w-10 flex items-center justify-center bg-gray-400 text-white rounded-full"
               >
                 G
-              </button>
-              {dropdownOpen && (
-                <div className="absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-lg shadow-md z-20">
-                  <a
-                    href="/login"
-                    className="block w-full px-4 py-2 text-sm text-left text-blue-600 hover:bg-gray-100 focus:outline-none"
-                  >
-                    Login
-                  </a>
-                </div>
-              )}
+              </a>
             </>
           )}
         </div>
@@ -172,8 +166,8 @@ export default function TimChatPromptWithSidebar() {
               {history.map((chat) => (
                 <li
                   key={chat.id}
-                  onClick={() => handleHistoryClick(chat)}
-                  className={`cursor-pointer p-3 rounded-md hover:bg-indigo-50 transition-colors select-none ${
+                  onClick={() => setActiveChat(chat)}
+                  className={`cursor-pointer p-3 rounded hover:bg-indigo-50 ${
                     activeChat?.id === chat.id ? 'bg-indigo-100 font-semibold' : ''
                   }`}
                 >
@@ -184,88 +178,96 @@ export default function TimChatPromptWithSidebar() {
           )}
         </aside>
 
-        {/* Main Chat Area */}
-        <main className="flex-1 flex flex-col justify-center items-center p-6 max-w-4xl mx-auto w-full">
-          <h1 className="text-3xl sm:text-5xl font-extrabold text-center mb-10 text-indigo-700">
+        {/* Chat Area */}
+        <main className="flex-1 flex flex-col justify-between p-4 max-w-4xl mx-auto w-full">
+          <div className="text-center text-3xl font-bold text-indigo-700 mb-4 sm:mb-6">
             🤖 Tim Chat AI
-          </h1>
+          </div>
 
-          <section className="w-full max-w-3xl flex flex-col bg-white rounded-xl shadow p-6 space-y-5 h-[520px]">
-            {/* Chat messages */}
-            <div className="flex-1 overflow-y-auto space-y-3 border border-gray-200 rounded-md p-5 bg-gray-50">
-              {activeChat?.messages?.length ? (
-                activeChat.messages.map((msg, i) => (
-                  <div
-                    key={i}
-                    className={`max-w-[75%] whitespace-pre-wrap text-sm px-4 py-2 rounded-lg ${
-                      msg.role === 'user'
-                        ? 'ml-auto bg-indigo-100 text-right text-indigo-900'
-                        : 'bg-gray-200 text-left text-gray-900'
-                    }`}
-                  >
-                    {msg.role === 'bot' ? (
-                      <ReactMarkdown
-                        components={{
-                          code({ node, inline, className, children, ...props }) {
-                            const match = /language-(\w+)/.exec(className || '');
-                            return !inline && match ? (
-                              <SyntaxHighlighter
-                                style={oneDark}
-                                language={match[1]}
-                                PreTag="div"
-                                {...props}
-                              >
-                                {String(children).replace(/\n$/, '')}
-                              </SyntaxHighlighter>
-                            ) : (
-                              <code className={className} {...props}>
-                                {children}
-                              </code>
-                            );
-                          },
-                        }}
-                      >
-                        {msg.text}
-                      </ReactMarkdown>
-                    ) : (
-                      msg.text
-                    )}
-                  </div>
-                ))
-              ) : (
-                <p className="text-gray-400 text-center select-none">
-                  Start a conversation with Tim Chat AI.
-                </p>
-              )}
-              <div ref={messagesEndRef} />
-            </div>
-
-            {/* Error message */}
-            {error && (
-              <p className="text-red-600 text-center text-sm font-semibold">{error}</p>
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto space-y-3 border border-gray-200 rounded-md p-4 bg-gray-50">
+            {activeChat?.messages?.length ? (
+              activeChat.messages.map((msg, i) => (
+                <div
+                  key={i}
+                  className={`max-w-full sm:max-w-[85%] whitespace-pre-wrap text-sm px-4 py-2 rounded-lg break-words overflow-x-auto ${
+                    msg.role === 'user'
+                      ? 'ml-auto bg-indigo-100 text-indigo-900'
+                      : 'bg-gray-200 text-gray-900'
+                  }`}
+                >
+                  {msg.role === 'bot' ? (
+                    <ReactMarkdown
+                      components={{
+                        code({ node, inline, className, children, ...props }) {
+                          const match = /language-(\w+)/.exec(className || '');
+                          return !inline && match ? (
+                            <SyntaxHighlighter
+                              style={oneDark}
+                              language={match[1]}
+                              PreTag="div"
+                              wrapLongLines
+                              {...props}
+                            >
+                              {String(children).replace(/\n$/, '')}
+                            </SyntaxHighlighter>
+                          ) : (
+                            <code className="bg-gray-300 px-1 rounded" {...props}>
+                              {children}
+                            </code>
+                          );
+                        },
+                      }}
+                    >
+                      {msg.text}
+                    </ReactMarkdown>
+                  ) : (
+                    msg.text
+                  )}
+                </div>
+              ))
+            ) : (
+              <p className="text-center text-gray-400">
+                Start a conversation with Tim Chat AI.
+              </p>
             )}
 
-            {/* Input form */}
-            <form onSubmit={handleSubmit} className="flex gap-4">
-              <input
-                type="text"
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                placeholder="Ask something..."
-                disabled={loading}
-                className="flex-1 rounded-lg border border-gray-300 px-4 py-3 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-              />
-              <button
-                type="submit"
-                disabled={loading}
-                className={`rounded-lg px-6 py-3 text-white font-semibold transition-colors ${
-                  loading ? 'bg-gray-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-500'
-                }`}
-              >
-                {loading ? 'Sending...' : 'Send'}
-              </button>
-            </form>
-          </section>
+            {/* Typing indicator */}
+            {loading && (
+              <div className="text-sm italic text-gray-500 animate-pulse">
+                Tim is thinking...
+              </div>
+            )}
+
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Error */}
+          {error && (
+            <div className="text-center text-red-600 text-sm mt-2 font-semibold">{error}</div>
+          )}
+
+          {/* Input */}
+          <form onSubmit={handleSubmit} className="mt-4 flex gap-2">
+            <textarea
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Ask something..."
+              rows={2}
+              className="flex-1 resize-none rounded border border-gray-300 px-4 py-2 shadow-sm focus:ring-2 focus:ring-indigo-500"
+              disabled={loading}
+            />
+            <button
+              type="submit"
+              disabled={loading}
+              className={`px-5 py-2 text-white font-semibold rounded-lg ${
+                loading ? 'bg-gray-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-500'
+              }`}
+            >
+              {loading ? '...' : 'Send'}
+            </button>
+          </form>
         </main>
       </div>
     </div>
